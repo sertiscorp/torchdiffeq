@@ -2,13 +2,14 @@ from .tsit5 import Tsit5Solver
 from .dopri5 import Dopri5Solver
 from .fixed_grid import Euler, Midpoint, RK4
 from .fixed_adams import AdamsBashforth, AdamsBashforthMoulton
-from .adams import VariableCoefficientAdamsBashforth
+from .adams import VariableCoefficientAdamsBashforth, VariableCoefficientJumpAdamsBashforth
 from .misc import _check_inputs
 
 SOLVERS = {
     'explicit_adams': AdamsBashforth,
     'fixed_adams': AdamsBashforthMoulton,
     'adams': VariableCoefficientAdamsBashforth,
+    'jump_adams': VariableCoefficientJumpAdamsBashforth,
     'tsit5': Tsit5Solver,
     'dopri5': Dopri5Solver,
     'euler': Euler,

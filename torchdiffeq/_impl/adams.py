@@ -22,7 +22,6 @@ class _VCABMState(collections.namedtuple('_VCABMState', 'y_n, prev_f, prev_t, ne
         by Ernst Hairer, Gerhard Wanner, and Syvert P Norsett.
     """
 
-
 def g_and_explicit_phi(prev_t, next_t, implicit_phi, k):
     curr_t = prev_t[0]
     dt = next_t - prev_t[0]
@@ -95,6 +94,7 @@ class VariableCoefficientAdamsBashforth(AdaptiveStepsizeODESolver):
         final_t = _convert_to_tensor(final_t).to(self.vcabm_state.prev_t[0])
         while final_t > self.vcabm_state.prev_t[0]:
             self.vcabm_state = self._adaptive_adams_step(self.vcabm_state, final_t)
+            # print(self.vcabm_state.next_t, self.vcabm_state.order)
         assert final_t == self.vcabm_state.prev_t[0]
         return self.vcabm_state.y_n
 
@@ -168,3 +168,33 @@ class VariableCoefficientAdamsBashforth(AdaptiveStepsizeODESolver):
         prev_f.appendleft(next_f0)
         prev_t.appendleft(next_t)
         return _VCABMState(p_next, prev_f, prev_t, next_t + dt_next, implicit_phi, order=next_order)
+
+
+# TODO: forward write to TS, backward read from TS
+class VariableCoefficientJumpAdamsBashforth(VariableCoefficientAdamsBashforth):
+
+    def _adaptive_adams_step(self, vcabm_state, final_t):
+        assert vcabm_state.prev_t[0] != vcabm_state.next_t
+        if self.func.jump_type == "read":
+            vcabm_state = vcabm_state._replace(next_t = self.func.next_jump(vcabm_state.prev_t[0], vcabm_state.next_t))
+
+        t0 = vcabm_state.prev_t[0]
+        y0 = vcabm_state.y_n
+
+        y1, prev_f, prev_t, next_t, prev_phi, order = super(VariableCoefficientJumpAdamsBashforth, self)._adaptive_adams_step(vcabm_state, final_t)
+
+        if prev_t[0] != t0:
+            if self.func.jump_type == "read":
+                dy = self.func.read_jump(prev_t[0], y1)
+            elif self.func.jump_type == "simulate":
+                dy = self.func.simulate_jump(t0, prev_t[0], y0, y1)
+            else:
+                dy = None
+        else:
+            dy = None
+
+        if (dy is not None) and dy[0].abs().sum() != 0:
+            y1[0][:] += dy[0]
+            order = 1
+
+        return _VCABMState(y1, prev_f, prev_t, next_t, prev_phi, order)

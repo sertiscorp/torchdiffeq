@@ -1,5 +1,6 @@
 import warnings
 import torch
+import torch.nn as nn
 
 
 def _flatten(sequence):
@@ -122,23 +123,41 @@ def _select_initial_step(fun, t0, y0, order, rtol, atol, f0=None):
 
     scale = tuple(atol_ + torch.abs(y0_) * rtol_ for y0_, atol_, rtol_ in zip(y0, atol, rtol))
 
-    d0 = tuple(_norm(y0_ / scale_) for y0_, scale_ in zip(y0, scale))
-    d1 = tuple(_norm(f0_ / scale_) for f0_, scale_ in zip(f0, scale))
+#   d0 = tuple(_norm(y0_ / scale_) for y0_, scale_ in zip(y0, scale))
+#   d1 = tuple(_norm(f0_ / scale_) for f0_, scale_ in zip(f0, scale))
 
-    if max(d0).item() < 1e-5 or max(d1).item() < 1e-5:
+#   if max(d0).item() < 1e-5 or max(d1).item() < 1e-5:
+#       h0 = torch.tensor(1e-6).to(t0)
+#   else:
+#       h0 = 0.01 * max(d0_ / d1_ for d0_, d1_ in zip(d0, d1))
+
+#   y1 = tuple(y0_ + h0 * f0_ for y0_, f0_ in zip(y0, f0))
+#   f1 = fun(t0 + h0, y1)
+
+#   d2 = tuple(_norm((f1_ - f0_) / scale_) / h0 for f1_, f0_, scale_ in zip(f1, f0, scale))
+
+#   if max(d1).item() <= 1e-15 and max(d2).item() <= 1e-15:
+#       h1 = torch.max(torch.tensor(1e-6).to(h0), h0 * 1e-3)
+#   else:
+#       h1 = (0.01 / max(d1 + d2))**(1. / float(order + 1))
+
+    d0 = _norm(tuple(y0_/scale_ for y0_, scale_ in zip(y0, scale)))
+    d1 = _norm(tuple(f0_/scale_ for f0_, scale_ in zip(f0, scale)))
+
+    if d0 < 1e-5 or d1 < 1e-5:
         h0 = torch.tensor(1e-6).to(t0)
     else:
-        h0 = 0.01 * max(d0_ / d1_ for d0_, d1_ in zip(d0, d1))
+        h0 = 0.01 * (d0/d1)
 
     y1 = tuple(y0_ + h0 * f0_ for y0_, f0_ in zip(y0, f0))
     f1 = fun(t0 + h0, y1)
 
-    d2 = tuple(_norm((f1_ - f0_) / scale_) / h0 for f1_, f0_, scale_ in zip(f1, f0, scale))
+    d2 = _norm(tuple((f1_ - f0_) / scale_ for f1_, f0_, scale_ in zip(f1, f0, scale))) / h0
 
-    if max(d1).item() <= 1e-15 and max(d2).item() <= 1e-15:
+    if d1 <= 1e-15 and d2 <= 1e-15:
         h1 = torch.max(torch.tensor(1e-6).to(h0), h0 * 1e-3)
     else:
-        h1 = (0.01 / max(d1 + d2))**(1. / float(order + 1))
+        h1 = (0.01 / max(d1, d2))**(1. / float(order + 1))
 
     return torch.min(100 * h0, h1)
 
@@ -183,8 +202,26 @@ def _check_inputs(func, y0, t):
 
     if _decreasing(t):
         t = -t
-        _base_reverse_func = func
-        func = lambda t, y: tuple(-f_ for f_ in _base_reverse_func(-t, y))
+
+        class TupleReverseFunc(nn.Module):
+
+            def __init__(self, base_func):
+                super(TupleReverseFunc, self).__init__()
+
+                assert base_func.func.base_func.jump_type != "simulate", "should not simulate jump during backpropagation"
+                self.base_func = base_func
+                self.jump_type = base_func.func.base_func.jump_type
+
+            def forward(self, t, y):
+                return tuple(-f_ for f_ in self.base_func(-t, y))
+
+            def next_jump(self, t0, t1):
+                return -self.base_func.next_jump(-t0, -t1)
+
+            def read_jump(self, t1, y1):
+                return tuple(-dy_ for dy_ in self.base_func.read_jump(-t1, y1))
+
+        func = TupleReverseFunc(func)
 
     for y0_ in y0:
         if not torch.is_floating_point(y0_):
