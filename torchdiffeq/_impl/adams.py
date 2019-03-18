@@ -175,18 +175,27 @@ class VariableCoefficientJumpAdamsBashforth(VariableCoefficientAdamsBashforth):
 
     def _adaptive_adams_step(self, vcabm_state, final_t):
         assert vcabm_state.prev_t[0] != vcabm_state.next_t
-        if self.func.jump_type == "read":
-            vcabm_state = vcabm_state._replace(next_t = self.func.next_jump(vcabm_state.prev_t[0], vcabm_state.next_t))
 
         t0 = vcabm_state.prev_t[0]
         y0 = vcabm_state.y_n
+        order0 = vcabm_state.order
+
+        if self.func.jump_type == "read":
+            dy = self.func.read_jump(t0, y0)
+            if dy[0].abs().sum() != 0:
+                y0[0][:] += dy[0]
+                order0 = 1
+            vcabm_state = vcabm_state._replace(y_n=y0, next_t = self.func.next_jump(vcabm_state.prev_t[0], vcabm_state.next_t), order=order0) # perform the jump & change step size
 
         y1, prev_f, prev_t, next_t, prev_phi, order = super(VariableCoefficientJumpAdamsBashforth, self)._adaptive_adams_step(vcabm_state, final_t)
 
-        if prev_t[0] != t0:
-            if self.func.jump_type == "read":
-                dy = self.func.read_jump(prev_t[0], y1)
-            elif self.func.jump_type == "simulate":
+        if self.func.jump_type == "read":
+            if prev_t[0] == t0:  # did not step
+                dy = tuple(-dy_ for dy_ in dy) # revert the jump
+            else:
+                dy = None
+        elif self.func.jump_type == "simulate":
+            if prev_t[0] != t0:  # did perform a step
                 dy = self.func.simulate_jump(t0, prev_t[0], y0, y1)
             else:
                 dy = None
@@ -198,3 +207,4 @@ class VariableCoefficientJumpAdamsBashforth(VariableCoefficientAdamsBashforth):
             order = 1
 
         return _VCABMState(y1, prev_f, prev_t, next_t, prev_phi, order)
+
