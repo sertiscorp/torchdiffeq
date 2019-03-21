@@ -208,9 +208,18 @@ def _check_inputs(func, y0, t):
             def __init__(self, base_func):
                 super(TupleReverseFunc, self).__init__()
 
-                assert base_func.func.base_func.jump_type != "simulate", "should not simulate jump during backpropagation"
                 self.base_func = base_func
-                self.jump_type = base_func.func.base_func.jump_type
+
+                jump_type = base_func.func.base_func.jump_type
+                # determine the corresponding jump_type
+                if jump_type == "simulate":
+                    raise Exception("should not simulate jump during backpropagation")
+                elif jump_type == "none":
+                    self.jump_type = "none"
+                elif jump_type == "read":
+                    self.jump_type = "read_backward"
+                else:
+                    raise Exception("unexpected jump_type")
 
             def forward(self, t, y):
                 return tuple(-f_ for f_ in self.base_func(-t, y))

@@ -1,5 +1,6 @@
 import collections
 import torch
+from itertools import zip_longest
 from .solvers import AdaptiveStepsizeODESolver
 from .misc import (
     _handle_unused_kwargs, _select_initial_step, _convert_to_tensor, _scaled_dot_product, _is_iterable,
@@ -180,10 +181,11 @@ class VariableCoefficientJumpAdamsBashforth(VariableCoefficientAdamsBashforth):
         y0 = vcabm_state.y_n
         order0 = vcabm_state.order
 
+        # during forward pass, jump then step
         if self.func.jump_type == "read":
             dy = self.func.read_jump(t0, y0)
             if dy[0].abs().sum() != 0:
-                y0[0][:] += dy[0]
+                y0 = tuple(y0_+dy_ for y0_, dy_ in zip_longest(y0, dy, fillvalue=0))
                 order0 = 1
             vcabm_state = vcabm_state._replace(y_n=y0, next_t = self.func.next_jump(vcabm_state.prev_t[0], vcabm_state.next_t), order=order0) # perform the jump & change step size
 
@@ -192,6 +194,12 @@ class VariableCoefficientJumpAdamsBashforth(VariableCoefficientAdamsBashforth):
         if self.func.jump_type == "read":
             if prev_t[0] == t0:  # did not step
                 dy = tuple(-dy_ for dy_ in dy) # revert the jump
+            else:
+                dy = None
+        # during backprop, step then jump
+        elif self.func.jump_type == "read_backward":
+            if prev_t[0] != t0:  # did perform a step
+                dy = self.func.read_jump(prev_t[0], y1)
             else:
                 dy = None
         elif self.func.jump_type == "simulate":
@@ -203,8 +211,7 @@ class VariableCoefficientJumpAdamsBashforth(VariableCoefficientAdamsBashforth):
             dy = None
 
         if (dy is not None) and dy[0].abs().sum() != 0:
-            y1[0][:] += dy[0]
+            y1 = tuple(y1_+dy_ for y1_, dy_ in zip_longest(y1, dy, fillvalue=0))
             order = 1
 
         return _VCABMState(y1, prev_f, prev_t, next_t, prev_phi, order)
-

@@ -27,6 +27,7 @@ class AdaptiveStepsizeODESolver(object):
         solution = [self.y0]
         t = t.to(self.y0[0].device, torch.float64)
         self.before_integrate(t)
+        self.sol = solution
         for i in range(1, len(t)):
             y = self.advance(t[i])
             solution.append(y)
