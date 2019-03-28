@@ -89,6 +89,7 @@ class VariableCoefficientAdamsBashforth(AdaptiveStepsizeODESolver):
         phi.appendleft(f0)
         first_step = _select_initial_step(self.func, t[0], self.y0, 2, self.rtol[0], self.atol[0], f0=f0).to(t)
 
+        assert first_step > 0, "initial step size is zero"
         self.vcabm_state = _VCABMState(self.y0, prev_f, prev_t, next_t=t[0] + first_step, phi=phi, order=1)
 
     def advance(self, final_t):
@@ -135,6 +136,7 @@ class VariableCoefficientAdamsBashforth(AdaptiveStepsizeODESolver):
         if not accept_step:
             # Retry with adjusted step size if step is rejected.
             dt_next = _optimal_step_size(dt, error_k, self.safety, self.ifactor, self.dfactor, order=order)
+            assert dt_next > 0, "zero step size after rejection"
             return _VCABMState(y0, prev_f, prev_t, prev_t[0] + dt_next, prev_phi, order=order)
 
         # We accept the step. Evaluate f and update phi.
@@ -166,6 +168,7 @@ class VariableCoefficientAdamsBashforth(AdaptiveStepsizeODESolver):
             dt, error_k, self.safety, self.ifactor, self.dfactor, order=order + 1
         )
 
+        assert dt_next > 0, "zero step after calling _optimal_step_size"
         prev_f.appendleft(next_f0)
         prev_t.appendleft(next_t)
         return _VCABMState(p_next, prev_f, prev_t, next_t + dt_next, implicit_phi, order=next_order)
@@ -175,7 +178,7 @@ class VariableCoefficientAdamsBashforth(AdaptiveStepsizeODESolver):
 class VariableCoefficientJumpAdamsBashforth(VariableCoefficientAdamsBashforth):
 
     def _adaptive_adams_step(self, vcabm_state, final_t):
-        assert vcabm_state.prev_t[0] != vcabm_state.next_t
+        assert vcabm_state.next_t > vcabm_state.prev_t[0]
 
         t0 = vcabm_state.prev_t[0]
         y0 = vcabm_state.y_n
