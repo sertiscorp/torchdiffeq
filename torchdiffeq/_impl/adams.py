@@ -90,13 +90,14 @@ class VariableCoefficientAdamsBashforth(AdaptiveStepsizeODESolver):
         first_step = _select_initial_step(self.func, t[0], self.y0, 2, self.rtol[0], self.atol[0], f0=f0).to(t)
 
         assert first_step > 0, "initial step size is zero"
-        self.vcabm_state = _VCABMState(self.y0, prev_f, prev_t, next_t=t[0] + first_step, phi=phi, order=1)
+        self.vcabm_state = _VCABMState(self.y0, prev_f, prev_t, next_t=t[0]+first_step, phi=phi, order=1)
 
     def advance(self, final_t):
         final_t = _convert_to_tensor(final_t).to(self.vcabm_state.prev_t[0])
         while final_t > self.vcabm_state.prev_t[0]:
+            assert self.vcabm_state.next_t > self.vcabm_state.prev_t[0], 'non-postive (before) {}, {}, {}'.format(self.vcabm_state.prev_t[0], self.vcabm_state.next_t, final_t)
             self.vcabm_state = self._adaptive_adams_step(self.vcabm_state, final_t)
-            # print(self.vcabm_state.next_t, self.vcabm_state.order)
+            assert self.vcabm_state.next_t > self.vcabm_state.prev_t[0], 'non-postive (after) {}, {}, {}'.format(self.vcabm_state.prev_t[0], self.vcabm_state.next_t, final_t)
         assert final_t == self.vcabm_state.prev_t[0]
         return self.vcabm_state.y_n
 
@@ -217,4 +218,5 @@ class VariableCoefficientJumpAdamsBashforth(VariableCoefficientAdamsBashforth):
             y1 = tuple(y1_+dy_ for y1_, dy_ in zip_longest(y1, dy, fillvalue=0))
             order = 1
 
+        assert next_t > prev_t[0]
         return _VCABMState(y1, prev_f, prev_t, next_t, prev_phi, order)
