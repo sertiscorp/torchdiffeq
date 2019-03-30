@@ -89,7 +89,7 @@ class VariableCoefficientAdamsBashforth(AdaptiveStepsizeODESolver):
         phi.appendleft(f0)
         first_step = _select_initial_step(self.func, t[0], self.y0, 2, self.rtol[0], self.atol[0], f0=f0).to(t)
 
-        assert first_step > 0, "initial step size is zero"
+        assert first_step > 0, "initial step size is zero t0 = {}".format(t0)
         self.vcabm_state = _VCABMState(self.y0, prev_f, prev_t, next_t=t[0]+first_step, phi=phi, order=1)
 
     def advance(self, final_t):
