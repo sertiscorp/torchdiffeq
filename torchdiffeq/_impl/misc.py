@@ -95,8 +95,6 @@ def _select_initial_step(fun, t0, y0, order, rtol, atol, f0=None):
         Initial value of the independent variable.
     y0 : ndarray, shape (n,)
         Initial value of the dependent variable.
-    direction : float
-        Integration direction.
     order : float
         Method order.
     rtol : float
