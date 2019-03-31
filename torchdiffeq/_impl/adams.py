@@ -167,9 +167,13 @@ class VariableCoefficientAdamsBashforth(AdaptiveStepsizeODESolver):
             dt, error_k, self.safety, self.ifactor, self.dfactor, order=order + 1
         )
 
-        assert dt_next > 0, "zero step after calling _optimal_step_size"
         prev_f.appendleft(next_f0)
         prev_t.appendleft(next_t)
+
+        if dt_next < 1.0e-10:
+            dt_next = _select_initial_step(self.func, prev_t[0], p_next, 2, self.rtol[0], self.atol[0], f0=prev_f[0]).to(dt_next)
+
+        assert dt_next >= 1.0e-10, "step size too small"
         return _VCABMState(p_next, prev_f, prev_t, next_t + dt_next, implicit_phi, order=next_order)
 
 
@@ -194,7 +198,7 @@ class VariableCoefficientJumpAdamsBashforth(VariableCoefficientAdamsBashforth):
         y1, prev_f, prev_t, next_t, prev_phi, order = super(VariableCoefficientJumpAdamsBashforth, self)._adaptive_adams_step(vcabm_state, final_t)
 
         if prev_t[0] == next_t:
-            print("DEBUG: {}, {}, {}, {}".format(t0, prev_t[0], next_t, final_t))
+            print("STEPSIZE WARNING: {}, {}, {}, {}".format(t0, prev_t[0], next_t, final_t))
 
         if self.func.jump_type == "read":
             if prev_t[0] == t0:  # did not step
