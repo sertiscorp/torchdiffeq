@@ -121,43 +121,44 @@ def _select_initial_step(fun, t0, y0, order, rtol, atol, f0=None):
 
     scale = tuple(atol_ + torch.abs(y0_) * rtol_ for y0_, atol_, rtol_ in zip(y0, atol, rtol))
 
-#   d0 = tuple(_norm(y0_ / scale_) for y0_, scale_ in zip(y0, scale))
-#   d1 = tuple(_norm(f0_ / scale_) for f0_, scale_ in zip(f0, scale))
+    d0 = tuple(_norm(y0_ / scale_) for y0_, scale_ in zip(y0, scale))
+    d1 = tuple(_norm(f0_ / scale_) for f0_, scale_ in zip(f0, scale))
 
-#   if max(d0).item() < 1e-5 or max(d1).item() < 1e-5:
-#       h0 = torch.tensor(1e-6).to(t0)
-#   else:
-#       h0 = 0.01 * max(d0_ / d1_ for d0_, d1_ in zip(d0, d1))
-
-#   y1 = tuple(y0_ + h0 * f0_ for y0_, f0_ in zip(y0, f0))
-#   f1 = fun(t0 + h0, y1)
-
-#   d2 = tuple(_norm((f1_ - f0_) / scale_) / h0 for f1_, f0_, scale_ in zip(f1, f0, scale))
-
-#   if max(d1).item() <= 1e-15 and max(d2).item() <= 1e-15:
-#       h1 = torch.max(torch.tensor(1e-6).to(h0), h0 * 1e-3)
-#   else:
-#       h1 = (0.01 / max(d1 + d2))**(1. / float(order + 1))
-
-    d0 = _norm(tuple(y0_/scale_ for y0_, scale_ in zip(y0, scale)))
-    d1 = _norm(tuple(f0_/scale_ for f0_, scale_ in zip(f0, scale)))
-
-    if d0 < 1e-5 or d1 < 1e-5:
+    if max(d0).item() < 1e-5 or max(d1).item() < 1e-5:
         h0 = torch.tensor(1e-6).to(t0)
     else:
-        h0 = 0.01 * (d0/d1)
+        h0 = 0.01 * max(d0_ / d1_ for d0_, d1_ in zip(d0, d1))
 
     y1 = tuple(y0_ + h0 * f0_ for y0_, f0_ in zip(y0, f0))
     f1 = fun(t0 + h0, y1)
 
-    d2 = _norm(tuple((f1_ - f0_) / scale_ for f1_, f0_, scale_ in zip(f1, f0, scale))) / h0
+    d2 = tuple(_norm((f1_ - f0_) / scale_) / h0 for f1_, f0_, scale_ in zip(f1, f0, scale))
 
-    if d1 <= 1e-15 and d2 <= 1e-15:
+    if max(d1).item() <= 1e-15 and max(d2).item() <= 1e-15:
         h1 = torch.max(torch.tensor(1e-6).to(h0), h0 * 1e-3)
     else:
-        h1 = (0.01 / max(d1, d2))**(1. / float(order + 1))
+        h1 = (0.01 / max(d1 + d2))**(1. / float(order + 1))
 
-    assert torch.min(100*h0, h1) > 0.0, 'initial stepsize must be positive (d0, d1, d2, h0, h1, stepsize) = ({}, {}, {}, {}, {}, {})'.format(d0, d1, d2, h0, h1, torch.min(100*h0, h1))
+#   d0 = _norm(tuple(y0_/scale_ for y0_, scale_ in zip(y0, scale)))
+#   d1 = _norm(tuple(f0_/scale_ for f0_, scale_ in zip(f0, scale)))
+
+#   if d0 < 1e-5 or d1 < 1e-5:
+#       h0 = torch.tensor(1e-6).to(t0)
+#   else:
+#       h0 = 0.01 * (d0/d1)
+
+#   y1 = tuple(y0_ + h0 * f0_ for y0_, f0_ in zip(y0, f0))
+#   f1 = fun(t0 + h0, y1)
+
+#   d2 = _norm(tuple((f1_ - f0_) / scale_ for f1_, f0_, scale_ in zip(f1, f0, scale))) / h0
+
+#   if d1 <= 1e-15 and d2 <= 1e-15:
+#       h1 = torch.max(torch.tensor(1e-6).to(h0), h0 * 1e-3)
+#   else:
+#       h1 = (0.01 / max(d1, d2))**(1. / float(order + 1))
+
+    assert not torch.isnan(torch.min(100*h0, h1)), 'initial stepsize can not be nan'
+    assert torch.min(100*h0, h1) > 1.0e-10, 'initial stepsize too small (d0, d1, d2, h0, h1, stepsize) = ({}, {}, {}, {}, {}, {})'.format(d0, d1, d2, h0, h1, torch.min(100*h0, h1))
 
     return torch.min(100*h0, h1)
 
