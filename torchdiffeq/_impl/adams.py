@@ -173,7 +173,7 @@ class VariableCoefficientAdamsBashforth(AdaptiveStepsizeODESolver):
         if dt_next < 1.0e-10:
             dt_next = _select_initial_step(self.func, prev_t[0], p_next, 2, self.rtol[0], self.atol[0], f0=prev_f[0]).to(dt_next)
 
-        assert dt_next >= 1.0e-10, "step size too small"
+        assert dt_next >= 1.0e-10, "step size too small {}, {}".format(prev_t[0], dt_next)
         return _VCABMState(p_next, prev_f, prev_t, next_t + dt_next, implicit_phi, order=next_order)
 
 

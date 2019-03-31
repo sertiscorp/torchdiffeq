@@ -159,7 +159,8 @@ def _select_initial_step(fun, t0, y0, order, rtol, atol, f0=None):
     else:
         h1 = (0.01 / max(d1, d2))**(1. / float(order + 1))
 
-    assert torch.min(100*h0, h1) > 0.0, 'initial stepsize must be positive (d0, d1, d2, h0, h1, stepsize) = ({}, {}, {}, {}, {}, {})'.format(d0, d1, d2, h0, h1, torch.min(100*h0, h1))
+    assert not torch.isnan(torch.min(100*h0, h1)), 'initial stepsize can not be nan'
+    assert torch.min(100*h0, h1) > 1.0e-10, 'initial stepsize too small (d0, d1, d2, h0, h1, stepsize) = ({}, {}, {}, {}, {}, {})'.format(d0, d1, d2, h0, h1, torch.min(100*h0, h1))
 
     return torch.min(100*h0, h1)
 
