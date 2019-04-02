@@ -191,7 +191,7 @@ class VariableCoefficientJumpAdamsBashforth(VariableCoefficientAdamsBashforth):
         if self.func.jump_type == "read":
             dy = self.func.read_jump(t0, y0)
             if dy[0].abs().sum() != 0:
-                y0 = tuple(y0_+dy_ for y0_, dy_ in zip_longest(y0, dy, fillvalue=0))
+                y0 = tuple(y0_+dy_ for y0_, dy_ in zip(y0, dy))
                 order0 = 1
             vcabm_state = vcabm_state._replace(y_n=y0, next_t=self.func.next_jump(vcabm_state.prev_t[0], vcabm_state.next_t), order=order0) # perform the jump & change step size
 
@@ -220,7 +220,7 @@ class VariableCoefficientJumpAdamsBashforth(VariableCoefficientAdamsBashforth):
             dy = None
 
         if (dy is not None) and dy[0].abs().sum() != 0:
-            y1 = tuple(y1_+dy_ for y1_, dy_ in zip_longest(y1, dy, fillvalue=0))
+            y1 = tuple(y1_+dy_ for y1_, dy_ in zip(y1, dy))
             order = 1
 
         return _VCABMState(y1, prev_f, prev_t, next_t, prev_phi, order)

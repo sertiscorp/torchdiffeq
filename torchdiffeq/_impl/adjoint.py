@@ -66,8 +66,27 @@ class OdeintAdjointMethod(torch.autograd.Function):
                 return self.func.next_jump(t0, t1)
 
             def read_jump(self, t1, y_aug1):
-                y1 = y_aug1[:self.n_tensors]
-                return self.func.read_jump(t1, y1)
+                y, adj_y = y_aug1[:self.n_tensors], y_aug1[self.n_tensors:2 * self.n_tensors]  # Ignore adj_time and adj_params.
+
+                with torch.set_grad_enabled(True):
+                   t = t1.to(y[0].device).detach().requires_grad_(True)
+                   y = tuple(y_.detach().requires_grad_(True) for y_ in y)
+                   dy = self.func.read_jump(t, y)  # this is okey because dy only depend on c, and dc = 0
+                   vjp_t, *vjp_y_and_params = torch.autograd.grad(
+                       dy, (t,) + y + f_params,
+                       tuple(-adj_y_ for adj_y_ in adj_y), allow_unused=True, retain_graph=True
+                   )
+                vjp_y = vjp_y_and_params[:n_tensors]
+                vjp_params = vjp_y_and_params[n_tensors:]
+
+                # TODO: double check if gradient w.r.t. t is correct
+                vjp_t = torch.zeros_like(t) if vjp_t is None else vjp_t
+                vjp_y = tuple(torch.zeros_like(y_) if vjp_y_ is None else vjp_y_ for vjp_y_, y_ in zip(vjp_y, y))
+                vjp_params = _flatten_convert_none_to_zeros(vjp_params, f_params)
+
+                if len(f_params) == 0:
+                    vjp_params = torch.tensor(0.).to(vjp_y[0])
+                return (*dy, *vjp_y, vjp_t, vjp_params)
 
         augmented_dynamics = Augmented_ODEFunc(func, n_tensors)
 
