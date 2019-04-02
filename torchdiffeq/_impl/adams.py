@@ -1,6 +1,5 @@
 import collections
 import torch
-from itertools import zip_longest
 from .solvers import AdaptiveStepsizeODESolver
 from .misc import (
     _handle_unused_kwargs, _select_initial_step, _convert_to_tensor, _scaled_dot_product, _is_iterable,
