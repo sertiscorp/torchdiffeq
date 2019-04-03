@@ -139,24 +139,6 @@ def _select_initial_step(fun, t0, y0, order, rtol, atol, f0=None):
     else:
         h1 = (0.01 / max(d1 + d2))**(1. / float(order + 1))
 
-#   d0 = _norm(tuple(y0_/scale_ for y0_, scale_ in zip(y0, scale)))
-#   d1 = _norm(tuple(f0_/scale_ for f0_, scale_ in zip(f0, scale)))
-
-#   if d0 < 1e-5 or d1 < 1e-5:
-#       h0 = torch.tensor(1e-6).to(t0)
-#   else:
-#       h0 = 0.01 * (d0/d1)
-
-#   y1 = tuple(y0_ + h0 * f0_ for y0_, f0_ in zip(y0, f0))
-#   f1 = fun(t0 + h0, y1)
-
-#   d2 = _norm(tuple((f1_ - f0_) / scale_ for f1_, f0_, scale_ in zip(f1, f0, scale))) / h0
-
-#   if d1 <= 1e-15 and d2 <= 1e-15:
-#       h1 = torch.max(torch.tensor(1e-6).to(h0), h0 * 1e-3)
-#   else:
-#       h1 = (0.01 / max(d1, d2))**(1. / float(order + 1))
-
     assert not torch.isnan(torch.min(100*h0, h1)), 'initial stepsize can not be nan'
     assert torch.min(100*h0, h1) > 1.0e-10, 'initial stepsize too small (d0, d1, d2, h0, h1, stepsize) = ({}, {}, {}, {}, {}, {})'.format(d0, d1, d2, h0, h1, torch.min(100*h0, h1))
 
@@ -206,32 +188,27 @@ def _check_inputs(func, y0, t):
 
         class TupleReverseFunc(nn.Module):
 
-            def __init__(self, base_func):
-                super(TupleReverseFunc, self).__init__()
-
-                self.base_func = base_func
-
-                jump_type = base_func.func.base_func.jump_type
-                # determine the corresponding jump_type
-                if jump_type == "simulate":
-                    raise Exception("should not simulate jump during backpropagation")
-                elif jump_type == "none":
-                    self.jump_type = "none"
-                elif jump_type == "read":
-                    self.jump_type = "read_backward"
-                else:
-                    raise Exception("unexpected jump_type")
-
             def forward(self, t, y):
-                return tuple(-f_ for f_ in self.base_func(-t, y))
+                return tuple(-f_ for f_ in func(-t, y))
 
-            def next_jump(self, t0, t1):
-                return -self.base_func.next_jump(-t0, -t1)
+        class TupleReverseJumpFunc(TupleReverseFunc):
 
-            def read_jump(self, t1, y1):
-                return tuple(-dy_ for dy_ in self.base_func.read_jump(-t1, y1))
+             def __init__(self):
+                super(TupleReverseJumpFunc, self).__init__()
+                assert func.jump_type == "read", "jump_type can only be read at this point"
+                self.jump_type = "read_backward"
 
-        func = TupleReverseFunc(func)
+             def next_jump(self, t0, t1):
+                 return -func.next_jump(-t0, -t1)
+
+             def read_jump(self, t, y):
+                 return tuple(-dy_ for dy_ in func.read_jump(-t, y))
+
+        if not hasattr(func, 'jump_type'):
+            func = TupleReverseFunc()
+        else:
+            assert func.jump_type != "simulate", "should not simulate jump during backpropagation"
+            func = TupleReverseJumpFunc()
 
     for y0_ in y0:
         if not torch.is_floating_point(y0_):

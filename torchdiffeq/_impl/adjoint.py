@@ -28,24 +28,18 @@ class OdeintAdjointMethod(torch.autograd.Function):
         n_tensors = len(ans)
         f_params = tuple(func.parameters())
 
-        # TODO: use a nn.Module and call odeint_adjoint to implement higher order derivatives.
-        class Augmented_ODEFunc(nn.Module):
 
-            def __init__(self, func, n_tensors):
-                super(Augmented_ODEFunc, self).__init__()
-
-                self.func = func
-                self.n_tensors = n_tensors
+        class AugmentedODEFunc(nn.Module):
 
             def forward(self, t, y_aug):
                 # Dynamics of the original system augmented with
                 # the adjoint wrt y, and an integrator wrt t and args.
-                y, adj_y = y_aug[:self.n_tensors], y_aug[self.n_tensors:2 * self.n_tensors]  # Ignore adj_time and adj_params.
+                y, adj_y = y_aug[:n_tensors], y_aug[n_tensors:2 * n_tensors]  # Ignore adj_time and adj_params.
 
                 with torch.set_grad_enabled(True):
                     t = t.to(y[0].device).detach().requires_grad_(True)
                     y = tuple(y_.detach().requires_grad_(True) for y_ in y)
-                    func_eval = self.func(t, y)
+                    func_eval = func(t, y)
                     vjp_t, *vjp_y_and_params = torch.autograd.grad(
                         func_eval, (t,) + y + f_params,
                         tuple(-adj_y_ for adj_y_ in adj_y), allow_unused=True, retain_graph=True
@@ -62,16 +56,23 @@ class OdeintAdjointMethod(torch.autograd.Function):
                     vjp_params = torch.tensor(0.).to(vjp_y[0])
                 return (*func_eval, *vjp_y, vjp_t, vjp_params)
 
-            def next_jump(self, t0, t1):
-                return self.func.next_jump(t0, t1)
 
-            def read_jump(self, t1, y_aug1):
-                y, adj_y = y_aug1[:self.n_tensors], y_aug1[self.n_tensors:2 * self.n_tensors]  # Ignore adj_time and adj_params.
+        class AugmentedJumpODEFunc(AugmentedODEFunc):
+
+            def __init__(self):
+                super(AugmentedJumpODEFunc, self).__init__()
+                self.jump_type = func.jump_type
+
+            def next_jump(self, t0, t1):
+                return func.next_jump(t0, t1)
+
+            def read_jump(self, t, y_aug):
+                y, adj_y = y_aug[:n_tensors], y_aug[n_tensors:2 * n_tensors]  # Ignore adj_time and adj_params.
 
                 with torch.set_grad_enabled(True):
-                   t = t1.to(y[0].device).detach().requires_grad_(True)
+                   t = t.to(y[0].device).detach().requires_grad_(True)
                    y = tuple(y_.detach().requires_grad_(True) for y_ in y)
-                   dy = self.func.read_jump(t, y)  # this is okey because dy only depend on c, and dc = 0
+                   dy = func.read_jump(t, y)  # this is okey because dy only depend on c, and dc = 0
                    vjp_t, *vjp_y_and_params = torch.autograd.grad(
                        dy, (t,) + y + f_params,
                        tuple(-adj_y_ for adj_y_ in adj_y), allow_unused=True, retain_graph=True
@@ -88,7 +89,12 @@ class OdeintAdjointMethod(torch.autograd.Function):
                     vjp_params = torch.tensor(0.).to(vjp_y[0])
                 return (*dy, *vjp_y, vjp_t, vjp_params)
 
-        augmented_dynamics = Augmented_ODEFunc(func, n_tensors)
+
+        if not hasattr(func, 'jump_type'):
+            augmented_dynamics = AugmentedODEFunc()
+        else:
+            augmented_dynamics = AugmentedJumpODEFunc()
+
 
         T = ans[0].shape[0]
         with torch.no_grad():
@@ -119,7 +125,8 @@ class OdeintAdjointMethod(torch.autograd.Function):
                     torch.tensor([t[i], t[i - 1]]), rtol=rtol, atol=atol, method=method, options=options
                 )
 
-                func.base_func.backtrace.append((t[i-1], aug_ans[0][1])) # debug
+                # JJ: record the backtrace
+                func.base_func.backtrace.append((t[i-1], aug_ans[0][1]))
 
                 # Unpack aug_ans.
                 adj_y = aug_ans[n_tensors:2 * n_tensors]
@@ -133,7 +140,6 @@ class OdeintAdjointMethod(torch.autograd.Function):
                 adj_y = tuple(adj_y_ + grad_output_[i - 1] for adj_y_, grad_output_ in zip(adj_y, grad_output))
 
                 del aug_y0, aug_ans
-
 
             time_vjps.append(adj_time)
             time_vjps = torch.cat(time_vjps[::-1])
@@ -153,28 +159,32 @@ def odeint_adjoint(func, y0, t, rtol=1e-6, atol=1e-12, method=None, options=None
 
         class TupleFunc(nn.Module):
 
-            def __init__(self, base_func):
-                super(TupleFunc, self).__init__()
-                self.base_func = base_func
-                self.jump_type = base_func.jump_type
-
             def forward(self, t, y):
-                return (self.base_func(t, y[0]),)
+                return (func(t, y[0]),)
+
+
+        class TupleJumpFunc(TupleFunc):
+
+            def __init__(self):
+                super(TupleJumpFunc, self).__init__()
+                self.jump_type = func.jump_type
 
             def simulate_jump(self, t0, t1, y0, y1):
-                du = self.base_func.simulate_jump(t0, t1, y0[0], y1[0])
-                return (du,)
+                return (func.simulate_jump(t0, t1, y0[0], y1[0]),)
 
             def next_jump(self, t0, t1):
-                return self.base_func.next_jump(t0, t1)
+                return func.next_jump(t0, t1)
 
-            def read_jump(self, t1, y1):
-                du = self.base_func.read_jump(t1, y1[0])
-                return (du,)
+            def read_jump(self, t, y):
+                return (func.read_jump(t, y[0]),)
 
         tensor_input = True
         y0 = (y0,)
-        func = TupleFunc(func)
+
+        if not hasattr(func, 'jump_type'):
+            func = TupleFunc()
+        else:
+            func = TupleJumpFunc()
 
     flat_params = _flatten(func.parameters())
     ys = OdeintAdjointMethod.apply(*y0, func, t, flat_params, rtol, atol, method, options)
