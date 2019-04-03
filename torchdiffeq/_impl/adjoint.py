@@ -32,7 +32,7 @@ class OdeintAdjointMethod(torch.autograd.Function):
         class AugmentedODEFunc(nn.Module):
 
             def __init__(self, func):
-                super(AugmentedODEFunc, self).__init__(func)
+                super(AugmentedODEFunc, self).__init__()
                 self.func = func
 
             def forward(self, t, y_aug):
