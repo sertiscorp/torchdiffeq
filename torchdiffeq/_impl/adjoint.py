@@ -130,7 +130,7 @@ class OdeintAdjointMethod(torch.autograd.Function):
                 )
 
                 # JJ: record the backtrace
-                func.base_func.backtrace.append((t[i-1], aug_ans[0][1]))
+                func.func.backtrace.append((t[i-1], aug_ans[0][1]))
 
                 # Unpack aug_ans.
                 adj_y = aug_ans[n_tensors:2 * n_tensors]
