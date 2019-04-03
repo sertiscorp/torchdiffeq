@@ -31,6 +31,10 @@ class OdeintAdjointMethod(torch.autograd.Function):
 
         class AugmentedODEFunc(nn.Module):
 
+            def __init__(self, func):
+                super(AugmentedODEFunc, self).__init__(func)
+                self.func = func
+
             def forward(self, t, y_aug):
                 # Dynamics of the original system augmented with
                 # the adjoint wrt y, and an integrator wrt t and args.
@@ -39,7 +43,7 @@ class OdeintAdjointMethod(torch.autograd.Function):
                 with torch.set_grad_enabled(True):
                     t = t.to(y[0].device).detach().requires_grad_(True)
                     y = tuple(y_.detach().requires_grad_(True) for y_ in y)
-                    func_eval = func(t, y)
+                    func_eval = self.func(t, y)
                     vjp_t, *vjp_y_and_params = torch.autograd.grad(
                         func_eval, (t,) + y + f_params,
                         tuple(-adj_y_ for adj_y_ in adj_y), allow_unused=True, retain_graph=True
@@ -59,8 +63,8 @@ class OdeintAdjointMethod(torch.autograd.Function):
 
         class AugmentedJumpODEFunc(AugmentedODEFunc):
 
-            def __init__(self):
-                super(AugmentedJumpODEFunc, self).__init__()
+            def __init__(self, func):
+                super(AugmentedJumpODEFunc, self).__init__(func)
                 self.jump_type = func.jump_type
 
             def next_jump(self, t0, t1):
@@ -72,7 +76,7 @@ class OdeintAdjointMethod(torch.autograd.Function):
                 with torch.set_grad_enabled(True):
                    t = t.to(y[0].device).detach().requires_grad_(True)
                    y = tuple(y_.detach().requires_grad_(True) for y_ in y)
-                   dy = func.read_jump(t, y)  # this is okey because dy only depend on c, and dc = 0
+                   dy = self.func.read_jump(t, y)  # this is okey because dy only depend on c, and dc = 0
                    vjp_t, *vjp_y_and_params = torch.autograd.grad(
                        dy, (t,) + y + f_params,
                        tuple(-adj_y_ for adj_y_ in adj_y), allow_unused=True, retain_graph=True
@@ -91,9 +95,9 @@ class OdeintAdjointMethod(torch.autograd.Function):
 
 
         if not hasattr(func, 'jump_type'):
-            augmented_dynamics = AugmentedODEFunc()
+            augmented_dynamics = AugmentedODEFunc(func)
         else:
-            augmented_dynamics = AugmentedJumpODEFunc()
+            augmented_dynamics = AugmentedJumpODEFunc(func)
 
 
         T = ans[0].shape[0]
@@ -159,32 +163,36 @@ def odeint_adjoint(func, y0, t, rtol=1e-6, atol=1e-12, method=None, options=None
 
         class TupleFunc(nn.Module):
 
+            def __init__(self, func):
+                super(TupleFunc, self).__init__()
+                self.func = func
+
             def forward(self, t, y):
-                return (func(t, y[0]),)
+                return (self.func(t, y[0]),)
 
 
         class TupleJumpFunc(TupleFunc):
 
-            def __init__(self):
-                super(TupleJumpFunc, self).__init__()
-                self.jump_type = func.jump_type
+            def __init__(self, func):
+                super(TupleJumpFunc, self).__init__(func)
+                self.jump_type = self.func.jump_type
 
             def simulate_jump(self, t0, t1, y0, y1):
-                return (func.simulate_jump(t0, t1, y0[0], y1[0]),)
+                return (self.func.simulate_jump(t0, t1, y0[0], y1[0]),)
 
             def next_jump(self, t0, t1):
-                return func.next_jump(t0, t1)
+                return self.func.next_jump(t0, t1)
 
             def read_jump(self, t, y):
-                return (func.read_jump(t, y[0]),)
+                return (self.func.read_jump(t, y[0]),)
 
         tensor_input = True
         y0 = (y0,)
 
         if not hasattr(func, 'jump_type'):
-            func = TupleFunc()
+            func = TupleFunc(func)
         else:
-            func = TupleJumpFunc()
+            func = TupleJumpFunc(func)
 
     flat_params = _flatten(func.parameters())
     ys = OdeintAdjointMethod.apply(*y0, func, t, flat_params, rtol, atol, method, options)

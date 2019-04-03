@@ -188,27 +188,31 @@ def _check_inputs(func, y0, t):
 
         class TupleReverseFunc(nn.Module):
 
+            def __init__(self, func):
+                super(TupleReverseFunc, self).__init__()
+                self.func = func
+
             def forward(self, t, y):
-                return tuple(-f_ for f_ in func(-t, y))
+                return tuple(-f_ for f_ in self.func(-t, y))
 
         class TupleReverseJumpFunc(TupleReverseFunc):
 
-             def __init__(self):
-                super(TupleReverseJumpFunc, self).__init__()
-                assert func.jump_type == "read", "jump_type can only be read at this point"
+             def __init__(self, func):
+                super(TupleReverseJumpFunc, self).__init__(func)
+                assert self.func.jump_type == "read", "jump_type can only be read at this point"
                 self.jump_type = "read_backward"
 
              def next_jump(self, t0, t1):
-                 return -func.next_jump(-t0, -t1)
+                 return -self.func.next_jump(-t0, -t1)
 
              def read_jump(self, t, y):
-                 return tuple(-dy_ for dy_ in func.read_jump(-t, y))
+                 return tuple(-dy_ for dy_ in self.func.read_jump(-t, y))
 
         if not hasattr(func, 'jump_type'):
-            func = TupleReverseFunc()
+            func = TupleReverseFunc(func)
         else:
             assert func.jump_type != "simulate", "should not simulate jump during backpropagation"
-            func = TupleReverseJumpFunc()
+            func = TupleReverseJumpFunc(func)
 
     for y0_ in y0:
         if not torch.is_floating_point(y0_):
