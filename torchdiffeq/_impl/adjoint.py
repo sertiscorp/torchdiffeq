@@ -67,8 +67,8 @@ class OdeintAdjointMethod(torch.autograd.Function):
                 super(AugmentedJumpODEFunc, self).__init__(func)
                 self.jump_type = func.jump_type
 
-            def next_jump(self, t0, t1):
-                return func.next_jump(t0, t1)
+            def next_read_jump(self, t0, t1):
+                return func.next_read_jump(t0, t1)
 
             def read_jump(self, t, y_aug):
                 y, adj_y = y_aug[:n_tensors], y_aug[n_tensors:2 * n_tensors]  # Ignore adj_time and adj_params.
@@ -177,11 +177,14 @@ def odeint_adjoint(func, y0, t, rtol=1e-6, atol=1e-12, method=None, options=None
                 super(TupleJumpFunc, self).__init__(func)
                 self.jump_type = self.func.jump_type
 
-            def simulate_jump(self, t0, t1, y0, y1):
-                return (self.func.simulate_jump(t0, t1, y0[0], y1[0]),)
+            def next_simulated_jump(self, t0, y0, t1):
+                return self.func.simulate_jump(t0, y0[0], t1)
 
-            def next_jump(self, t0, t1):
-                return self.func.next_jump(t0, t1)
+            def simulated_jump(self, dN, t, y):
+                return (self.func.simulate_jump(dN, t, y[0]),)
+
+            def next_read_jump(self, t0, t1):
+                return self.func.next_read_jump(t0, t1)
 
             def read_jump(self, t, y):
                 return (self.func.read_jump(t, y[0]),)
