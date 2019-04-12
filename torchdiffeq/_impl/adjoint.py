@@ -178,10 +178,10 @@ def odeint_adjoint(func, y0, t, rtol=1e-6, atol=1e-12, method=None, options=None
                 self.jump_type = self.func.jump_type
 
             def next_simulated_jump(self, t0, y0, t1):
-                return self.func.simulate_jump(t0, y0[0], t1)
+                return self.func.next_simulated_jump(t0, y0[0], t1)
 
             def simulated_jump(self, dN, t, y):
-                return (self.func.simulate_jump(dN, t, y[0]),)
+                return (self.func.simulated_jump(dN, t, y[0]),)
 
             def next_read_jump(self, t0, t1):
                 return self.func.next_read_jump(t0, t1)
