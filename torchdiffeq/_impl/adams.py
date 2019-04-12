@@ -60,7 +60,8 @@ def compute_implicit_phi(explicit_phi, f_n, k):
 class VariableCoefficientAdamsBashforth(AdaptiveStepsizeODESolver):
 
     def __init__(
-        self, func, y0, rtol, atol, implicit=True, max_order=_MAX_ORDER, safety=0.9, ifactor=10.0, dfactor=0.2, **unused_kwargs
+        self, func, y0, rtol, atol, implicit=True, max_order=_MAX_ORDER, safety=0.9, ifactor=10.0, dfactor=0.2, 
+        **unused_kwargs
     ):
         _handle_unused_kwargs(self, unused_kwargs)
         del unused_kwargs
