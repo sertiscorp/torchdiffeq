@@ -29,7 +29,7 @@ class OdeintAdjointMethod(torch.autograd.Function):
         f_params = tuple(func.parameters())
 
         # JJ: reverse map
-        t2tid = {t: tid for tid, t in enumerate(t)}
+        t2tid = {float(t): tid for tid, t in enumerate(t)}
 
         class AugmentedODEFunc(nn.Module):
 
@@ -73,11 +73,12 @@ class OdeintAdjointMethod(torch.autograd.Function):
                 return func.next_read_jump(t0, t1)
 
             def read_jump(self, t, y_aug):
-                # JJ: replace y_aug with saved trace
-                if t in t2tid:
-                    y_aug = tuple(ans_[t2tid[t]] for ans_ in ans)
+                # Ignore adj_time and adj_params.
+                y, adj_y = y_aug[:n_tensors], y_aug[n_tensors:2 * n_tensors]
 
-                y, adj_y = y_aug[:n_tensors], y_aug[n_tensors:2 * n_tensors]  # Ignore adj_time and adj_params.
+                # JJ: replace y_aug with saved trace
+                if float(t) in t2tid:
+                    y = tuple(ans_[t2tid[float(t)]] for ans_ in ans[:n_tensors])
 
                 with torch.set_grad_enabled(True):
                    t = t.to(y[0].device).detach().requires_grad_(True)
