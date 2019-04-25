@@ -48,7 +48,7 @@ class OdeintAdjointMethod(torch.autograd.Function):
                     func_eval = self.func(t, y)
                     vjp_t, *vjp_y_and_params = torch.autograd.grad(
                         func_eval, (t,) + y + f_params,
-                        tuple(-adj_y_ for adj_y_ in adj_y), allow_unused=True, retain_graph=True
+                        tuple(-adj_y_ for adj_y_ in adj_y), allow_unused=True, # retain_graph=True
                     )
                 vjp_y = vjp_y_and_params[:n_tensors]
                 vjp_params = vjp_y_and_params[n_tensors:]
@@ -85,7 +85,7 @@ class OdeintAdjointMethod(torch.autograd.Function):
                    dy = self.func.read_jump(t, y)  # this is okey because dy only depend on c, and dc = 0
                    vjp_t, *vjp_y_and_params = torch.autograd.grad(
                        dy, (t,) + y + f_params,
-                       tuple(-adj_y_ for adj_y_ in adj_y), allow_unused=True, retain_graph=True
+                       tuple(-adj_y_ for adj_y_ in adj_y),  allow_unused=True, # retain_graph=True
                    )
                 vjp_y = vjp_y_and_params[:n_tensors]
                 vjp_params = vjp_y_and_params[n_tensors:]
