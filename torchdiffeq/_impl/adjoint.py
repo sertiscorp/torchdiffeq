@@ -83,7 +83,10 @@ class OdeintAdjointMethod(torch.autograd.Function):
                 with torch.set_grad_enabled(True):
                    t = t.to(y[0].device).detach().requires_grad_(True)
                    y = tuple(y_.detach().requires_grad_(True) for y_ in y)
-                   dy = self.func.read_jump(t, y)  # this is okey because dy only depend on c, and dc = 0
+
+                   # JJ: if no jump, then set grad to true
+                   dy = tuple(y_.requires_grad_(True) if (not y_.requires_grad) else y_ for y_ in self.func.read_jump(t, y))
+
                    vjp_t, *vjp_y_and_params = torch.autograd.grad(
                        dy, (t,) + y + f_params,
                        tuple(-adj_y_ for adj_y_ in adj_y),  allow_unused=True, # retain_graph=True
