@@ -28,7 +28,13 @@ represented as `ODEJumpFunc` (a subclass of nn.Module in pytorch). The user need
 4) next_read_jump --- read next event time from input event data, used in training.
 5) read_jump --- the jump in latent state from input event data, used in training.
 
-For an example implementation of those functions, please see [modules.py](examples/modules.py)
+For an example implementation of those functions, please see [modules.py](examples/modules.py). Then, the ODEJumpFunc can be passed in as
+an argument to the `odeint_adjoint` for simulating latent dynamics and stochastic events with the following.
+```
+odeint(func, z0, tsave, method='jump_adams', rtol=rtol, atol=atol)
+```
+where `func` is an ODEJumpFunc object, `z0` is the initial latent state, and `tsave` contains the timestamps at which the latent state is recorded.
+For a full example usage of the libaray, please see [examples/](examples/).
 
 If you found this library useful in your research, please consider citing
 ```
