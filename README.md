@@ -11,7 +11,7 @@ The algorithms in this brunch is currently only tested on CPU, and GPU implement
 ---
 
 <p align="center">
-  <img align="middle" src="./assets/njsde.png" alt="Jump ODE" width="500" height="168" />
+  <img align="middle" src="./assets/njsde.png" alt="Jump ODE" width="500" height="220" />
 </p>
 
 ## Installation
