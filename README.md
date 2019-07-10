@@ -3,7 +3,7 @@
 This branch extends neural ordinary differential equation (ODE) solver with discontinuities, which describes the abrupt change in latent state caused by events. 
 Here we assume the continuous time dynamics is descriped by the following initial value problem (IVP).
 ```
-dy = f(t, y) dt + w(t, y) dN     y(t_0) = y_0
+dz = f(t, z) dt + w(t, z) dN     z(t_0) = z_0
 ```
 where N(t) is the total number of events happend up to time t. This branch extend the 'adams' solver to handle the discontinuity in the IVP solution (as well as gradient backpropagation).
 The algorithms in this brunch is currently only tested on CPU, and GPU implementation will be added in further updates.
