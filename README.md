@@ -28,7 +28,7 @@ represented as `ODEJumpFunc` (a subclass of nn.Module in pytorch). The user need
 4) next_read_jump --- read next event time from input event data, used in training.
 5) read_jump --- the jump in latent state from input event data, used in training.
 
-For an example usage, please see [examples](examples/)
+For an example implementation of those functions, please see [modules.py](examples/modules.py)
 
 If you found this library useful in your research, please consider citing
 ```
