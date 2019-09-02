@@ -62,15 +62,15 @@ if __name__ == '__main__':
         np.random.seed(0)
         torch.manual_seed(0)
 
-    dim_c, dim_h, dim_N, dt, tspan = 5, 5, 1, np.pi/200.0, (0.0, np.pi*5)
+    dim_c, dim_h, dim_N, dt, tspan = 5, 5, 1, 0.05, (0.0, 100.0)
     path = "./data/point_processes/"
-    TSTR = read_timeseries(path + args.dataset + "_training.csv", np.pi/20.0)
-    TSVA = read_timeseries(path + args.dataset + "_validation.csv", np.pi/20.0)
-    TSTE = read_timeseries(path + args.dataset + "_testing.csv", np.pi/20.0)
+    TSTR = read_timeseries(path + args.dataset + "_training.csv")
+    TSVA = read_timeseries(path + args.dataset + "_validation.csv")
+    TSTE = read_timeseries(path + args.dataset + "_testing.csv")
 
     if args.dataset == "poisson":
-        lmbda_va_real = poisson_lmbda(tspan[0], tspan[1], dt, 0.2, TSVA)
-        lmbda_te_real = poisson_lmbda(tspan[0], tspan[1], dt, 0.2, TSTE)
+        lmbda_va_real = poisson_lmbda(tspan[0], tspan[1], dt, 1.0, TSVA)
+        lmbda_te_real = poisson_lmbda(tspan[0], tspan[1], dt, 1.0, TSTE)
     elif args.dataset == "exponential_hawkes":
         lmbda_va_real = exponential_hawkes_lmbda(tspan[0], tspan[1], dt, 0.2, 0.8, 1.0, TSVA, args.evnt_align)
         lmbda_te_real = exponential_hawkes_lmbda(tspan[0], tspan[1], dt, 0.2, 0.8, 1.0, TSTE, args.evnt_align)

@@ -56,8 +56,8 @@ if __name__ == '__main__':
 
     # compute the ground truth intensity of the model point processes that generate the datasets
     if args.dataset == "poisson":
-        lmbda_va_real = poisson_lmbda(tspan[0], tspan[1], dt, 0.2, TSVA)
-        lmbda_te_real = poisson_lmbda(tspan[0], tspan[1], dt, 0.2, TSTE)
+        lmbda_va_real = poisson_lmbda(tspan[0], tspan[1], dt, 1.0, TSVA)
+        lmbda_te_real = poisson_lmbda(tspan[0], tspan[1], dt, 1.0, TSTE)
     elif args.dataset == "exponential_hawkes":
         lmbda_va_real = exponential_hawkes_lmbda(tspan[0], tspan[1], dt, 0.2, 0.8, 1.0, TSVA, args.evnt_align)
         lmbda_te_real = exponential_hawkes_lmbda(tspan[0], tspan[1], dt, 0.2, 0.8, 1.0, TSTE, args.evnt_align)
