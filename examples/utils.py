@@ -43,7 +43,7 @@ def create_outpath(dataset):
     return outpath
 
 
-def visualize(outpath, tsave, trace, lmbda, tsave_, trace_, grid, lmbda_real, tse, batch_id, itr, gsmean=None, otc=None, appendix=""):
+def visualize(outpath, tsave, trace, lmbda, tsave_, trace_, grid, lmbda_real, tse, batch_id, itr, gsmean=None, gsvar=None, otc=None, appendix=""):
     for sid in range(lmbda.shape[1]):
         fig = plt.figure(figsize=(6, 6), facecolor='white')
         axe = plt.gca()
@@ -76,8 +76,16 @@ def visualize(outpath, tsave, trace, lmbda, tsave_, trace_, grid, lmbda_real, ts
 
         # plot the gaussian mean
         if gsmean is not None:
-            for dat in list(gsmean[:, sid, :, 0].detach().numpy().T):
-                plt.plot(tsave.numpy(), dat, linewidth=0.5, linestyle="dotted", color="black")
+            if gsvar is not None:
+                for mean, var in zip(list(gsmean[:, sid, :, 0].detach().numpy().T), list(gsvar[:, sid, :, 0].detach().numpy().T)):
+                    plt.fill(np.concatenate([tsave.numpy(), tsave.numpy()[::-1]]),
+                             np.concatenate([(mean - 1.9600 * np.sqrt(var)),
+                                             (mean + 1.9600 * np.sqrt(var))[::-1]]),
+                             alpha=0.2, fc='b', ec='None')
+
+            for mean in list(gsmean[:, sid, :, 0].detach().numpy().T):
+                plt.plot(tsave.numpy(), mean, linewidth=0.5, linestyle="dotted", color="black")
+
 
         if otc is not None:
             plt.scatter(grid[-1].numpy(), otc[sid]*5.0, 5.0)
@@ -148,7 +156,8 @@ def forward_pass(func, z0, tspan, dt, batch, evnt_align, gs_info=None, type_fore
 
     log_likelihood = -integrate(tsave, lmbda)
 
-    seqs_happened = set(sid for sid in range(len(batch))) if predict_first else set()  # set of sequences where at least one event has happened
+    # set of sequences where at least one event has happened
+    seqs_happened = set(sid for sid in range(len(batch))) if predict_first else set()
 
     if func.evnt_embedding == "discrete":
         et_error = []
@@ -179,15 +188,15 @@ def forward_pass(func, z0, tspan, dt, batch, evnt_align, gs_info=None, type_fore
 
         et_error = []
         for evnt in tse:
-            log_gs = log_normal_pdf(evnt[:-1], evnt[-1]).sum(dim=-1)
-            log_likelihood += logsumexp(lmbda[evnt[:-1]].log() + log_gs, dim=-1)
+            log_gs = log_normal_pdf(evnt[:-func.dim_N], evnt[-func.dim_N:]).sum(dim=-1)
+            log_likelihood += logsumexp(lmbda[evnt[:-func.dim_N]].log() + log_gs, dim=-1)
             if evnt[1] in seqs_happened:
                 # mean_pred embedding
                 mean_preds = torch.zeros(len(type_forecast), func.dim_E)
                 for tid, t in enumerate(type_forecast):
-                    loc = (np.searchsorted(tsavenp, tsave[evnt[0]].item()-t),) + evnt[1:-1]
+                    loc = (np.searchsorted(tsavenp, tsave[evnt[0]].item()-t),) + evnt[1:-func.dim_N]
                     mean_preds[tid] = ((lmbda[loc].view(func.dim_N, 1) * gsmean[loc]).sum(dim=0) / lmbda[loc].sum()).detach()
-                et_error.append((mean_preds - func.evnt_embed(evnt[-1])).norm(dim=-1))
+                et_error.append((mean_preds - func.evnt_embed(evnt[-func.dim_N:])).norm(dim=-1))
             seqs_happened.add(evnt[1])
 
         METE = sum(et_error)/len(et_error) if len(et_error) > 0 else -torch.ones(len(type_forecast))
@@ -196,7 +205,6 @@ def forward_pass(func, z0, tspan, dt, batch, evnt_align, gs_info=None, type_fore
         return tsave, trace, lmbda, gtid, tse, -log_likelihood, METE
     elif func.evnt_embedding == "continuous":
         return tsave, trace, lmbda, gtid, tse, -log_likelihood, METE, gsmean, var
-
 
 
 def poisson_lmbda(tmin, tmax, dt, lmbda0, TS):

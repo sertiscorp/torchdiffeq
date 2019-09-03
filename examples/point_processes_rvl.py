@@ -37,16 +37,16 @@ if not args.debug:
     sys.stdout = open(outpath + '/' + commit + '.log', 'w')
     sys.stderr = open(outpath + '/' + commit + '.err', 'w')
 
-def read_timeseries(filename, scale=1.0, num_seqs=sys.maxsize):
+def read_timeseries(filename, scale=1.0, feature_scale=1.0, num_seqs=sys.maxsize):
     with open(filename) as f:
         seqs = f.readlines()[:num_seqs]
 
     timeseries = []
     for seq in seqs:
         ts = seq.split(';')[0].split()
-        events = [] if len(ts) == 0 else [(float(ts[0])*scale, [float(ts[0])*scale])]
+        events = [] if len(ts) == 0 else [(float(ts[0])*scale, [float(ts[0])*scale*feature_scale])]
         for i in range(1, len(ts)):
-            events.append((float(ts[i])*scale, [float(ts[i])*scale - float(ts[i-1])*scale]))
+            events.append((float(ts[i])*scale, [(float(ts[i]) - float(ts[i-1]))*scale*feature_scale]))
         timeseries.append(events)
 
     return timeseries
@@ -64,9 +64,9 @@ if __name__ == '__main__':
 
     dim_c, dim_h, dim_N, dt, tspan = 5, 5, 1, 0.05, (0.0, 100.0)
     path = "./data/point_processes/"
-    TSTR = read_timeseries(path + args.dataset + "_training.csv")
-    TSVA = read_timeseries(path + args.dataset + "_validation.csv")
-    TSTE = read_timeseries(path + args.dataset + "_testing.csv")
+    TSTR = read_timeseries(path + args.dataset + "_training.csv", 1.0, 0.1)
+    TSVA = read_timeseries(path + args.dataset + "_validation.csv", 1.0, 0.1)
+    TSTE = read_timeseries(path + args.dataset + "_testing.csv", 1.0, 0.1)
 
     if args.dataset == "poisson":
         lmbda_va_real = poisson_lmbda(tspan[0], tspan[1], dt, 1.0, TSVA)
@@ -138,7 +138,7 @@ if __name__ == '__main__':
                 # visualize
                 tsave_ = torch.tensor([record[0] for record in reversed(func.backtrace)])
                 trace_ = torch.stack(tuple(record[1] for record in reversed(func.backtrace)))
-                visualize(outpath, tsave, trace, lmbda, tsave_, trace_, tsave[gtid], lmbda_va_real, tsne, range(len(TSVA)), it, gsmean=gsmean)
+                visualize(outpath, tsave, trace, lmbda, tsave_, trace_, tsave[gtid], lmbda_va_real, tsne, range(len(TSVA)), it, gsmean=gsmean, gsvar=gsvar)
 
                 # save
                 torch.save({'func_state_dict': func.state_dict(), 'c0': c0, 'h0': h0, 'it0': it, 'optimizer_state_dict': optimizer.state_dict()}, outpath + '/' + args.paramw)
@@ -146,5 +146,5 @@ if __name__ == '__main__':
 
     # computing testing error
     tsave, trace, lmbda, gtid, tsne, loss, mete, gsmean, gsvar = forward_pass(func, torch.cat((c0, h0), dim=-1), tspan, dt, TSTE, args.evnt_align)
-    visualize(outpath, tsave, trace, lmbda, None, None, tsave[gtid], lmbda_te_real, tsne, range(len(TSTE)), it, appendix="testing", gsmean=gsmean)
+    visualize(outpath, tsave, trace, lmbda, None, None, tsave[gtid], lmbda_te_real, tsne, range(len(TSTE)), it, appendix="testing", gsmean=gsmean, gsvar=gsvar)
     print("iter: {}, testing loss: {:10.4f}, type error: {}".format(it, loss.item()/len(TSTE), mete), flush=True)
