@@ -90,7 +90,7 @@ def visualize(outpath, tsave, trace, lmbda, tsave_, trace_, grid, lmbda_real, ts
         if otc is not None:
             plt.scatter(grid[-1].numpy(), otc[sid]*5.0, 5.0)
 
-        plt.savefig(outpath + '/{:03d}_{:04d}.svg'.format(batch_id[sid], itr) + appendix, dpi=250)
+        plt.savefig(outpath + '/{:03d}_{:04d}_{}.svg'.format(batch_id[sid], itr, appendix), dpi=250)
         fig.clf()
         plt.close(fig)
 

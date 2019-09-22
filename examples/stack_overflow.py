@@ -147,10 +147,5 @@ if __name__ == '__main__':
     # computing testing error
     for si in range(0, len(TSTE), args.batch_size):
         tsave, trace, lmbda, gtid, tsne, loss, mete = forward_pass(func, torch.cat((c0, h0), dim=-1), tspan, dt, TSTE[si:si+args.batch_size], args.evnt_align)
-        visualize(outpath, tsave, trace, lmbda, None, None, None, None, tsne, range(si, si+args.batch_size), it, "testing")
         print("iter: {:5d}, testing loss: {:10.4f}, num_evnts: {:8d}, type error: {}".format(it, loss.item()/len(TSTE[si:si+args.batch_size]), len(tsne), mete), flush=True)
-
-    # simulate events
-    func.jump_type="simulate"
-    tsave, trace, lmbda, gtid, tsne, loss, mete = forward_pass(func, torch.cat((c0, h0), dim=-1), tspan, dt, [[]]*10, args.evnt_align)
-    visualize(outpath, tsave, trace, lmbda, None, None, None, None, tsne, range(10), it, "simulate")
+        visualize(outpath, tsave, trace, lmbda, None, None, None, None, tsne, range(si, si+args.batch_size), it, "testing")
