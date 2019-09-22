@@ -75,10 +75,9 @@ if __name__ == '__main__':
     TS, tspan = read_stackoverflow(1.0/30.0/24.0/3600.0, 1.0, 1.0)
     nseqs = len(TS)
 
-    # TSTR, TSVA, TSTE = TS[:int(nseqs*0.85)], TS[int(nseqs*0.85):int(nseqs*0.90)], TS[int(nseqs*0.90):]
     TSTR = TS[:int(nseqs*0.2*args.fold)] + TS[int(nseqs*0.2*(args.fold+1)):]
-    TSTE = TS[int(nseqs*0.2*args.fold):int(nseqs*0.2*(args.fold+1))]
-    TSVA = TSTE[:30]
+    TSVA = TS[int(nseqs*0.2*args.fold):int(nseqs*0.2*args.fold)+args.batch_size]
+    TSTE = TS[int(nseqs*0.2*args.fold)+args.batch_size:int(nseqs*0.2*(args.fold+1))]
 
     # initialize / load model
     func = ODEJumpFunc(dim_c, dim_h, dim_N, dim_N, dim_hidden=32, num_hidden=2, ortho=True, jump_type=args.jump_type, evnt_align=args.evnt_align, activation=nn.CELU())
@@ -147,10 +146,5 @@ if __name__ == '__main__':
     # computing testing error
     for si in range(0, len(TSTE), args.batch_size):
         tsave, trace, lmbda, gtid, tsne, loss, mete = forward_pass(func, torch.cat((c0, h0), dim=-1), tspan, dt, TSTE[si:si+args.batch_size], args.evnt_align)
-        visualize(outpath, tsave, trace, lmbda, None, None, None, None, tsne, range(si, si+args.batch_size), it, "testing")
+        visualize(outpath, tsave, trace, lmbda, None, None, None, None, tsne, range(si, si+args.batch_size), it, appendix="testing")
         print("iter: {:5d}, testing loss: {:10.4f}, num_evnts: {:8d}, type error: {}".format(it, loss.item()/len(TSTE[si:si+args.batch_size]), len(tsne), mete), flush=True)
-
-    # simulate events
-    func.jump_type="simulate"
-    tsave, trace, lmbda, gtid, tsne, loss, mete = forward_pass(func, torch.cat((c0, h0), dim=-1), tspan, dt, [[]]*10, args.evnt_align)
-    visualize(outpath, tsave, trace, lmbda, None, None, None, None, tsne, range(10), it, "simulate")

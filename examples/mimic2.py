@@ -148,8 +148,3 @@ if __name__ == '__main__':
     tsave, trace, lmbda, gtid, tsne, loss, mete = forward_pass(func, torch.cat((c0, h0), dim=-1), tspan, dt, TSTE, args.evnt_align, predict_first=False, rtol=1.0e-7, atol=1.0e-9)
     visualize(outpath, tsave, trace, lmbda, None, None, None, None, tsne, range(len(TSTE)), it, "testing")
     print("iter: {:5d}, testing loss: {:10.4f}, num_evnts: {:8d}, type error: {}".format(it, loss.item()/len(TSTE), len(tsne)-len(TSTE), mete), flush=True)
-
-    # simulate events
-    func.jump_type="simulate"
-    tsave, trace, lmbda, gtid, tsne, loss, mete = forward_pass(func, torch.cat((c0, h0), dim=-1), tspan, dt, [[]]*10, args.evnt_align, predict_first=False, rtol=1.0e-7, atol=1.0e-9)
-    visualize(outpath, tsave, trace, lmbda, None, None, None, None, tsne, range(10), it, "simulate")
