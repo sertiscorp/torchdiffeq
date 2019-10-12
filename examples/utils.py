@@ -43,14 +43,14 @@ def create_outpath(dataset):
     return outpath
 
 
-def visualize(outpath, tsave, trace, lmbda, tsave_, trace_, grid, lmbda_real, tse, batch_id, itr, gsmean=None, gsvar=None, otc=None, appendix=""):
+def visualize(outpath, tsave, trace, lmbda, tsave_, trace_, grid, lmbda_real, tse, batch_id, itr, gsmean=None, gsvar=None, scale=1.0, appendix=""):
     for sid in range(lmbda.shape[1]):
         fig = plt.figure(figsize=(6, 6), facecolor='white')
         axe = plt.gca()
         axe.set_title('Point Process Modeling')
         axe.set_xlabel('time')
         axe.set_ylabel('intensity')
-        axe.set_ylim(-10.0, 10.0)
+        axe.set_ylim(-35.0, 35.0)
 
         # plot the state function
         if (tsave is not None) and (trace is not None):
@@ -72,23 +72,20 @@ def visualize(outpath, tsave, trace, lmbda, tsave_, trace_, grid, lmbda_real, ts
             # continue...
             tevnt = np.array([tsave[evnt[0]] for evnt in tse_current])
             kevnt = np.array([evnt[2] if not (type(evnt[2]) == list) else evnt[2][0] for evnt in tse_current])
-            plt.scatter(tevnt, kevnt, 1.5)
+            plt.scatter(tevnt, kevnt*scale, 1.5)
 
         # plot the gaussian mean
         if gsmean is not None:
             if gsvar is not None:
                 for mean, var in zip(list(gsmean[:, sid, :, 0].detach().numpy().T), list(gsvar[:, sid, :, 0].detach().numpy().T)):
                     plt.fill(np.concatenate([tsave.numpy(), tsave.numpy()[::-1]]),
-                             np.concatenate([(mean - 1.9600 * np.sqrt(var)),
-                                             (mean + 1.9600 * np.sqrt(var))[::-1]]),
-                             alpha=0.2, fc='b', ec='None')
+                             np.concatenate([scale * (mean - 1.9600 * np.sqrt(var)),
+                                             scale * (mean + 1.9600 * np.sqrt(var))[::-1]]),
+                             alpha=0.1, fc='b', ec='None')
 
             for mean in list(gsmean[:, sid, :, 0].detach().numpy().T):
-                plt.plot(tsave.numpy(), mean, linewidth=0.5, linestyle="dotted", color="black")
+                plt.plot(tsave.numpy(), scale * mean, linewidth=1.0, linestyle="dotted", color="black")
 
-
-        if otc is not None:
-            plt.scatter(grid[-1].numpy(), otc[sid]*5.0, 5.0)
 
         plt.savefig(outpath + '/{:03d}_{:04d}_{}.svg'.format(batch_id[sid], itr, appendix), dpi=250)
         fig.clf()
@@ -130,7 +127,7 @@ def create_tsave(tmin, tmax, dt, evnts_raw, evnt_align=False):
     return torch.tensor(tsave), gtid, evnts, tse
 
 
-def forward_pass(func, z0, tspan, dt, batch, evnt_align, gs_info=None, type_forecast=[0.0], predict_first=True, rtol=1.0e-5, atol=1.0e-7):
+def forward_pass(func, z0, tspan, dt, batch, evnt_align, gs_info=None, type_forecast=[0.0], predict_first=True, rtol=1.0e-5, atol=1.0e-7, scale=1.0):
     # merge the sequences to create a sequence
     evnts_raw = sorted([(evnt[0],) + (sid,) + evnt[1:] for sid in range(len(batch)) for evnt in batch[sid]])
 
@@ -199,7 +196,7 @@ def forward_pass(func, z0, tspan, dt, batch, evnt_align, gs_info=None, type_fore
                 et_error.append((mean_preds - func.evnt_embed(evnt[-func.dim_N:])).norm(dim=-1))
             seqs_happened.add(evnt[1])
 
-        METE = sum(et_error)/len(et_error) if len(et_error) > 0 else -torch.ones(len(type_forecast))
+        METE = sum(et_error)*scale/len(et_error) if len(et_error) > 0 else -torch.ones(len(type_forecast))
 
     if func.evnt_embedding == "discrete":
         return tsave, trace, lmbda, gtid, tse, -log_likelihood, METE

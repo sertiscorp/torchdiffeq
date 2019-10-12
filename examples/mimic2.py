@@ -75,10 +75,8 @@ if __name__ == '__main__':
     TS, tspan = read_mimic2(1.0, 1.0, 1.0)
     nseqs = len(TS)
 
-    # TSTR, TSVA, TSTE = TS[:int(nseqs*0.85)], TS[int(nseqs*0.85):int(nseqs*0.9)], TS[int(nseqs*0.9):]
     TSTR = TS[:int(nseqs*0.2*args.fold)] + TS[int(nseqs*0.2*(args.fold+1)):]
     TSTE = TS[int(nseqs*0.2*args.fold):int(nseqs*0.2*(args.fold+1))]
-    TSVA = TSTE
 
     # initialize / load model
     func = ODEJumpFunc(dim_c, dim_h, dim_N, dim_N, dim_hidden=64, num_hidden=1, ortho=True, jump_type=args.jump_type, evnt_align=args.evnt_align, activation=nn.CELU())
@@ -126,19 +124,6 @@ if __name__ == '__main__':
 
             # validate and visualize
             if it % args.nsave == 0:
-                # use the full validation set for forward pass
-                tsave, trace, lmbda, gtid, tsne, loss, mete = forward_pass(func, torch.cat((c0, h0), dim=-1), tspan, dt, TSVA, args.evnt_align, predict_first=False, rtol=1.0e-7, atol=1.0e-9)
-
-                # backward prop
-                func.backtrace.clear()
-                loss.backward()
-                print("iter: {:5d}, validation loss: {:10.4f}, num_evnts: {:8d}, type error: {}".format(it, loss.item()/len(TSVA), len(tsne)-len(TSVA), mete), flush=True)
-
-                # visualize
-                tsave_ = torch.tensor([record[0] for record in reversed(func.backtrace)])
-                trace_ = torch.stack(tuple(record[1] for record in reversed(func.backtrace)))
-                visualize(outpath, tsave, trace, lmbda, tsave_, trace_, None, None, tsne, range(len(TSVA)), it)
-
                 # save
                 torch.save({'func_state_dict': func.state_dict(), 'c0': c0, 'h0': h0, 'it0': it, 'optimizer_state_dict': optimizer.state_dict()}, outpath + '/' + '{:05d}'.format(it) + args.paramw)
 
@@ -146,5 +131,5 @@ if __name__ == '__main__':
 
     # computing testing error
     tsave, trace, lmbda, gtid, tsne, loss, mete = forward_pass(func, torch.cat((c0, h0), dim=-1), tspan, dt, TSTE, args.evnt_align, predict_first=False, rtol=1.0e-7, atol=1.0e-9)
-    visualize(outpath, tsave, trace, lmbda, None, None, None, None, tsne, range(len(TSTE)), it, "testing")
+    visualize(outpath, tsave, trace, lmbda, None, None, None, None, tsne, range(len(TSTE)), it, appendix="testing")
     print("iter: {:5d}, testing loss: {:10.4f}, num_evnts: {:8d}, type error: {}".format(it, loss.item()/len(TSTE), len(tsne)-len(TSTE), mete), flush=True)
