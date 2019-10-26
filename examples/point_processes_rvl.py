@@ -63,10 +63,14 @@ if __name__ == '__main__':
         torch.manual_seed(0)
 
     dim_c, dim_h, dim_N, dt, tspan = 5, 5, 1, 0.05, (0.0, 100.0)
+
+    # scale the feature
+    feature_scale = 0.1
+
     path = "./data/point_processes/"
-    TSTR = read_timeseries(path + args.dataset + "_training.csv", 1.0, 0.1)
-    TSVA = read_timeseries(path + args.dataset + "_validation.csv", 1.0, 0.1)
-    TSTE = read_timeseries(path + args.dataset + "_testing.csv", 1.0, 0.1)
+    TSTR = read_timeseries(path + args.dataset + "_training.csv", 1.0, feature_scale)
+    TSVA = read_timeseries(path + args.dataset + "_validation.csv", 1.0, feature_scale)
+    TSTE = read_timeseries(path + args.dataset + "_testing.csv", 1.0, feature_scale)
 
     if args.dataset == "poisson":
         lmbda_va_real = poisson_lmbda(tspan[0], tspan[1], dt, 1.0, TSVA)
@@ -112,7 +116,7 @@ if __name__ == '__main__':
             batch = [TSTR[seqid] for seqid in batch_id]
 
             # forward pass
-            tsave, trace, lmbda, gtid, tsne, loss, mete, gsmean, gsvar = forward_pass(func, torch.cat((c0, h0), dim=-1), tspan, dt, batch, args.evnt_align)
+            tsave, trace, lmbda, gtid, tsne, loss, mete, gsmean, gsvar = forward_pass(func, torch.cat((c0, h0), dim=-1), tspan, dt, batch, args.evnt_align, scale=1.0/feature_scale)
             loss_meter.update(loss.item() / len(batch))
 
             # backward prop
@@ -128,7 +132,7 @@ if __name__ == '__main__':
             # validate and visualize
             if it % args.nsave == 0:
                 # use the full validation set for forward pass
-                tsave, trace, lmbda, gtid, tsne, loss, mete, gsmean, gsvar = forward_pass(func, torch.cat((c0, h0), dim=-1), tspan, dt, TSVA, args.evnt_align)
+                tsave, trace, lmbda, gtid, tsne, loss, mete, gsmean, gsvar = forward_pass(func, torch.cat((c0, h0), dim=-1), tspan, dt, TSVA, args.evnt_align, scale=1.0/feature_scale)
 
                 # backward prop
                 func.backtrace.clear()
@@ -138,13 +142,13 @@ if __name__ == '__main__':
                 # visualize
                 tsave_ = torch.tensor([record[0] for record in reversed(func.backtrace)])
                 trace_ = torch.stack(tuple(record[1] for record in reversed(func.backtrace)))
-                visualize(outpath, tsave, trace, lmbda, tsave_, trace_, tsave[gtid], lmbda_va_real, tsne, range(len(TSVA)), it, gsmean=gsmean, gsvar=gsvar)
+                visualize(outpath, tsave, trace, lmbda, tsave_, trace_, tsave[gtid], lmbda_va_real, tsne, range(len(TSVA)), it, gsmean=gsmean, gsvar=gsvar, scale=1.0/feature_scale)
 
                 # save
                 torch.save({'func_state_dict': func.state_dict(), 'c0': c0, 'h0': h0, 'it0': it, 'optimizer_state_dict': optimizer.state_dict()}, outpath + '/' + str(it) + '_' + args.paramw)
 
 
     # computing testing error
-    tsave, trace, lmbda, gtid, tsne, loss, mete, gsmean, gsvar = forward_pass(func, torch.cat((c0, h0), dim=-1), tspan, dt, TSTE, args.evnt_align)
-    visualize(outpath, tsave, trace, lmbda, None, None, tsave[gtid], lmbda_te_real, tsne, range(len(TSTE)), it, appendix="testing", gsmean=gsmean, gsvar=gsvar)
+    tsave, trace, lmbda, gtid, tsne, loss, mete, gsmean, gsvar = forward_pass(func, torch.cat((c0, h0), dim=-1), tspan, dt, TSTE, args.evnt_align, scale=1.0/feature_scale)
+    visualize(outpath, tsave, trace, lmbda, None, None, tsave[gtid], lmbda_te_real, tsne, range(len(TSTE)), it, appendix="testing", gsmean=gsmean, gsvar=gsvar, scale=1.0/feature_scale)
     print("iter: {}, testing loss: {:10.4f}, type error: {}".format(it, loss.item()/len(TSTE), mete), flush=True)
